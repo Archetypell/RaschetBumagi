@@ -44,7 +44,8 @@ public class MainActivity extends Activity {
     private TextView resultText, detailText;
     private EditText resinLength, resinWidth, resinSheets, resinGsm, resinOsm;
     private TextView resinResult;
-    private EditText labAStart, labAEnd, labBStart, labBEnd, flowStart, flowEnd;
+    private EditText labPaperBase, labAStart, labAEnd, labBStart, labBEnd, flowStart, flowEnd;
+    private TextView labResult;
     private final DecimalFormat numberFormat = new DecimalFormat("#,##0.##",
             DecimalFormatSymbols.getInstance(new Locale("ru", "RU")));
 
@@ -56,23 +57,20 @@ public class MainActivity extends Activity {
     private void showHome() {
         LinearLayout page = newPage();
         addTitle(page, "РАСЧЁТ БУМАГИ", "Производственные калькуляторы");
-        addHomeCard(page, "РАСЧЁТ ЛИСТОВ", "Количество листов из бумажной катушки", () -> buildPaperScreen());
-        addHomeCard(page, "РАСЧЁТ СМОЛЫ", "Расход смолы для пропитки бумаги", () -> buildResinScreen());
-        addHomeCard(page, "ЛАБОРАТОРИЯ", "Поля для лабораторных проб и текучести", () -> buildLabScreen());
+        addHomeCard(page, "РАСЧЁТ ЛИСТОВ", () -> buildPaperScreen());
+        addHomeCard(page, "РАСЧЁТ СМОЛЫ", () -> buildResinScreen());
+        addHomeCard(page, "ЛАБОРАТОРИЯ", () -> buildLabScreen());
         Button history = button("ИСТОРИЯ РАСЧЁТОВ", ACCENT);
         page.addView(history, buttonParams());
         history.setOnClickListener(v -> buildPaperScreen());
         setContentView(wrap(page));
     }
 
-    private void addHomeCard(LinearLayout page, String title, String description, Runnable action) {
+    private void addHomeCard(LinearLayout page, String title, Runnable action) {
         LinearLayout c = card();
         page.addView(c, spacedParams(12));
         TextView t = text(title, 17, TEXT, true);
         c.addView(t);
-        TextView d = text(description, 13, MUTED, false);
-        d.setPadding(0, dp(6), 0, dp(12));
-        c.addView(d);
         Button b = button("ОТКРЫТЬ", ACCENT);
         c.addView(b, buttonParams());
         b.setOnClickListener(v -> action.run());
@@ -86,8 +84,6 @@ public class MainActivity extends Activity {
         addSectionTitle(inputCard, "ПАРАМЕТРЫ КАТУШКИ");
         coilMassInput = addInput(inputCard, "Масса катушки вместе с втулкой, кг или г", "Например, 1250");
         massUnitSpinner = addSpinner(inputCard, "Единица массы", new String[]{"кг", "г"});
-        TextView core = text("Масса втулки вычитается автоматически: 5 кг", 12, Color.rgb(105, 190, 155), false);
-        inputCard.addView(core);
         addSectionTitle(inputCard, "ПАРАМЕТРЫ БУМАГИ");
         grammageInput = addInput(inputCard, "Граммаж бумаги (г/м²)", "Например, 80");
         widthInput = addInput(inputCard, "Ширина бумаги", "Например, 840");
@@ -101,7 +97,7 @@ public class MainActivity extends Activity {
         addSectionTitle(resultCard, "РЕЗУЛЬТАТ");
         resultText = text("— листов", 28, ACCENT, true); resultText.setGravity(Gravity.CENTER);
         resultCard.addView(resultText);
-        detailText = text("Введите параметры катушки и нажмите «Рассчитать листы».", 13, MUTED, false);
+        detailText = text("", 13, MUTED, false);
         detailText.setGravity(Gravity.CENTER); resultCard.addView(detailText);
 
         LinearLayout historyCard = card(); page.addView(historyCard, spacedParams(12));
@@ -119,7 +115,7 @@ public class MainActivity extends Activity {
         LinearLayout c = card(); page.addView(c);
         addSectionTitle(c, "ПАРАМЕТРЫ ЗАКАЗА");
         resinLength = addInput(c, "Длина листа (м)", "3,11"); resinLength.setText("3,11");
-        resinWidth = addInput(c, "Ширина листа (м)", "Введите ширину вручную");
+        resinWidth = addInput(c, "Ширина листа (мм)", "");
         resinSheets = addInput(c, "Количество листов", "Например, 500");
         resinGsm = addInput(c, "Граммаж бумаги (г/м²)", "Например, 80");
         resinOsm = addInput(c, "Осмоление (%)", "Обычно 50–60");
@@ -128,15 +124,13 @@ public class MainActivity extends Activity {
         LinearLayout out = card(); page.addView(out, spacedParams(12));
         addSectionTitle(out, "РАСХОД СМОЛЫ");
         resinResult = text("— кг", 30, ACCENT, true); resinResult.setGravity(Gravity.CENTER); out.addView(resinResult);
-        TextView note = text("Результат — общий расход смолы на указанное количество листов. Расчёт использует согласованную формулу осмоления.", 12, MUTED, false);
-        note.setPadding(0, dp(8), 0, 0); out.addView(note);
         setContentView(wrap(page));
     }
 
     private void calculateResin() {
         try {
             double l = parse(resinLength, "длину листа");
-            double w = parse(resinWidth, "ширину листа");
+            double w = parse(resinWidth, "ширину листа") / 1000.0;
             double n = parse(resinSheets, "количество листов");
             double gsm = parse(resinGsm, "граммаж");
             double osm = parse(resinOsm, "осмоление");
@@ -152,21 +146,52 @@ public class MainActivity extends Activity {
         LinearLayout page = newPage(); addNavigation(page, "ЛАБОРАТОРИЯ");
         LinearLayout samples = card(); page.addView(samples);
         addSectionTitle(samples, "ПРОБЫ С ДВУХ СТОРОН ПОЛОТНА");
-        TextView expl = text("Введите массу каждой пробы до и после лабораторной сушки. Формулы лабораторных показателей пока не включены, чтобы не подменять вашу заводскую методику предположениями.", 12, MUTED, false);
-        expl.setPadding(0, 0, 0, dp(10)); samples.addView(expl);
-        labAStart = addInput(samples, "Проба 1 — масса до сушки (г)", "Масса до сушки");
-        labAEnd = addInput(samples, "Проба 1 — масса после сушки (г)", "Масса после сушки");
-        labBStart = addInput(samples, "Проба 2 — масса до сушки (г)", "Масса до сушки");
-        labBEnd = addInput(samples, "Проба 2 — масса после сушки (г)", "Масса после сушки");
+        labPaperBase = addInput(samples, "Масса бумаги до пропитки (г)", "");
+        labAStart = addInput(samples, "Операторская сторона — масса сразу после отбора (г)", "");
+        labAEnd = addInput(samples, "Операторская сторона — масса после 5 минут сушки (г)", "");
+        labBStart = addInput(samples, "Неоператорская сторона — масса сразу после отбора (г)", "");
+        labBEnd = addInput(samples, "Неоператорская сторона — масса после 5 минут сушки (г)", "");
         LinearLayout flow = card(); page.addView(flow, spacedParams(12));
         addSectionTitle(flow, "ТЕКУЧЕСТЬ");
-        TextView fNote = text("Укажите массу образца до прессования и массу оставшегося образца после прессования и удаления вытекшей смолы.", 12, MUTED, false);
-        fNote.setPadding(0, 0, 0, dp(8)); flow.addView(fNote);
-        flowStart = addInput(flow, "Масса до прессования (г)", "Масса до прессования");
-        flowEnd = addInput(flow, "Масса после прессования (г)", "Масса после прессования");
-        TextView reminder = text("Количество кружков, температура и время в форму не вводятся — как и договаривались.", 12, MUTED, false);
-        reminder.setPadding(0, dp(8), 0, 0); flow.addView(reminder);
+        flowStart = addInput(flow, "Масса до прессования (г)", "");
+        flowEnd = addInput(flow, "Масса после прессования (г)", "");
+        Button calc = button("РАССЧИТАТЬ", ACCENT); flow.addView(calc, buttonParams());
+        calc.setOnClickListener(v -> calculateLab());
+        LinearLayout result = card(); page.addView(result, spacedParams(12));
+        addSectionTitle(result, "РЕЗУЛЬТАТЫ");
+        labResult = text("—", 16, TEXT, false); result.addView(labResult);
         setContentView(wrap(page));
+    }
+
+    private void calculateLab() {
+        try {
+            double base = parse(labPaperBase, "массу бумаги до пропитки");
+            double aBefore = parse(labAStart, "массу операторской стороны сразу после отбора");
+            double aAfter = parse(labAEnd, "массу операторской стороны после сушки");
+            double bBefore = parse(labBStart, "массу неоператорской стороны сразу после отбора");
+            double bAfter = parse(labBEnd, "массу неоператорской стороны после сушки");
+            double fBefore = parse(flowStart, "массу до прессования");
+            double fAfter = parse(flowEnd, "массу после прессования");
+            if (aBefore < aAfter || bBefore < bAfter) {
+                throw new IllegalArgumentException("Масса после сушки не может быть больше массы до сушки.");
+            }
+            if (aBefore <= base || bBefore <= base) {
+                throw new IllegalArgumentException("Масса после пропитки должна быть больше исходной массы бумаги.");
+            }
+            if (fAfter > fBefore) {
+                throw new IllegalArgumentException("Масса после прессования не может быть больше массы до прессования.");
+            }
+            double osmA = (aBefore - base) / base * 100.0;
+            double osmB = (bBefore - base) / base * 100.0;
+            double volA = (aBefore - aAfter) / aBefore * 100.0;
+            double volB = (bBefore - bAfter) / bBefore * 100.0;
+            double flow = (fBefore - fAfter) / fBefore * 100.0;
+            labResult.setText(
+                    "ОПЕРАТОРСКАЯ СТОРОНА\\nОсмоление: " + numberFormat.format(osmA) + " %\\nЛетучие: " + numberFormat.format(volA) + " %\\n\\n" +
+                    "НЕОПЕРАТОРСКАЯ СТОРОНА\\nОсмоление: " + numberFormat.format(osmB) + " %\\nЛетучие: " + numberFormat.format(volB) + " %\\n\\n" +
+                    "ТЕКУЧЕСТЬ\\n" + numberFormat.format(flow) + " %");
+            hideKeyboard(flowEnd);
+        } catch (Exception ex) { showError(ex); }
     }
 
     private void addNavigation(LinearLayout page, String title) {
@@ -184,7 +209,6 @@ public class MainActivity extends Activity {
     }
     private void addTitle(LinearLayout p, String title, String subtitle) {
         TextView t = text(title, 25, TEXT, true); p.addView(t);
-        TextView st = text(subtitle, 14, MUTED, false); st.setPadding(0, dp(5), 0, dp(18)); p.addView(st);
     }
     private TextView text(String value, int size, int color, boolean bold) {
         TextView t = new TextView(this); t.setText(value); t.setTextSize(size); t.setTextColor(color);
@@ -207,7 +231,7 @@ public class MainActivity extends Activity {
     }
     private EditText addInput(LinearLayout parent, String label, String hint) {
         TextView l = text(label, 13, TEXT, false); l.setPadding(0, dp(5), 0, dp(4)); parent.addView(l);
-        EditText e = new EditText(this); e.setSingleLine(true); e.setTextSize(16); e.setTextColor(TEXT); e.setHintTextColor(MUTED); e.setHint(hint);
+        EditText e = new EditText(this); e.setSingleLine(true); e.setTextSize(16); e.setTextColor(TEXT); 
         e.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED);
         e.setPadding(dp(11), 0, dp(11), 0); e.setBackgroundTintList(android.content.res.ColorStateList.valueOf(ACCENT));
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(46)); p.bottomMargin = dp(7); parent.addView(e,p); return e;
